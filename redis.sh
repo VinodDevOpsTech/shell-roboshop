@@ -1,0 +1,45 @@
+#!/bin/bash
+
+LOGS_FOLDER="/var/log/roboshop"
+sudo mkdir -p $LOGS_FOLDER
+sudo chown -R ec2-user:ec2-user $LOGS_FOLDER
+sudo chmod -R 755 $LOGS_FOLDER
+LOGS_FILE="$LOGS_FOLDER/$0.log"
+R="\e[31m"
+G="\e[32m"
+Y="\e[33m"
+N="\e[0m"
+TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
+USER_ID=$(id -u)
+
+if [ $USER_ID -ne 0 ]; then
+    echo -e "$TIMESTAMP [ERROR] $R Please run with root user $N" | tee -a $LOGS_FILE
+    exit 1
+fi
+
+VALIDATE(){
+    if [ $1 -ne 0 ]; then
+        echo -e "$TIMESTAMP [ERROR] $2... $R FAILURE $N" | tee -a $LOGS_FILE
+        exit 1
+    else
+        echo -e "$TIMESTAMP [INFO] $2... $G SUCCESS $N" | tee -a $LOGS_FILE
+    fi
+}
+
+dnf module disable redis -y &>>$LOGS_FILE
+dnf module enable redis:7 -y &>>$LOGS_FILE
+VALIDATE $? " disabling and enabling redis"
+
+dnf install redis -y &>>$LOGS_FILE
+VALIDATE $? "Installing redis"
+
+systemctl enable mongod 
+systemctl start mongod 
+VALIDATE $? "enabling and starting mongoDB"
+
+sed -i -e 's/127.0.0.1/0.0.0.0/g' -e '/protected/ c protected no' /etc/redis/redis.conf
+VALIDATE $? "Allowing remote connections to user"
+
+systemctl enable redis 
+systemctl start redis 
+VALIDATE $? "enabling and restarting redis"
