@@ -36,7 +36,7 @@ do
     fi
 
     echo "$R53_RECORD --> $IP"
-done
+
     #### Updating R53 Record ####
     aws route53 change-resource-record-sets \
     --hosted-zone-id $ZONE_ID \
