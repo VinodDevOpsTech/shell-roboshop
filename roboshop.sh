@@ -1,4 +1,5 @@
 #!/bin/bash
+
 AMI_ID="ami-0220d79f3f480ecf5"
 ZONE_ID="Z0584760TQ3FQFBERSRB"
 DOMAIN_NAME="maxdevopstech.online"
@@ -6,30 +7,34 @@ DOMAIN_NAME="maxdevopstech.online"
 for instance in $@
 do
     echo "launching instance: $instance"
+
     INSTANCE_ID=$(aws ec2 run-instances \
     --image-id $AMI_ID \
     --instance-type t3.micro \
     --security-groups "roboshop-common" "roboshop-$instance" \
-    --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=Test}]' \
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$instance}]" \
     --query 'Instances[0].InstanceId' \
-    --output text
-    )
-    echo "instance id:$INSTANCE_ID"
+    --output text)
 
+    echo "instance id: $INSTANCE_ID"
 
-    if [ $instance == "frontend" ]; then
-        IP=$(aws ec2 describe-instances --instance-id $INSTANCE_ID \
+    if [ "$instance" == "frontend" ]; then
+        IP=$(aws ec2 describe-instances \
+        --instance-ids $INSTANCE_ID \
         --query "Reservations[*].Instances[*].PublicIpAddress" \
-        --output text
-        )
+        --output text)
+
         R53_RECORD="$DOMAIN_NAME"
 
     else
-        IP=$(aws ec2 describe-instances --instance-id $INSTANCE_ID \
-        --query "Reservations[*].Instances[*].PublicIpAddress" \
-        --output text
-        )
+        IP=$(aws ec2 describe-instances \
+        --instance-ids $INSTANCE_ID \
+        --query "Reservations[*].Instances[*].PrivateIpAddress" \
+        --output text)
+
         R53_RECORD="$instance.$DOMAIN_NAME"
     fi
+
+    echo "$R53_RECORD --> $IP"
 done
     
