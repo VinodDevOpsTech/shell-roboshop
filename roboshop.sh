@@ -9,7 +9,7 @@ do
     INSTANCE_ID=$(aws ec2 run-instances \
     --image-id $AMI_ID \
     --instance-type t3.micro \
-    --security-group-ids "roboshop-common" "roboshop-$instance" \
+    --security-group "roboshop-common" "roboshop-$instance" \
     --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=Test}]' \
     --query 'Instances[0].InstanceId' \
     --output text
@@ -18,14 +18,14 @@ do
 
 
     if [ $instance == "frontend" ]; then
-        IP=$(aws ec2 describe-instances --instance-id i-1234567890abcdef0 \
+        IP=$(aws ec2 describe-instances --instance-id $INSTANCE_ID \
         --query "Reservations[*].Instances[*].PublicIpAddress" \
         --output text
         )
         R53_RECORD="$DOMAIN_NAME"
 
     else
-        IP=$(aws ec2 describe-instances --instance-id i-1234567890abcdef0 \
+        IP=$(aws ec2 describe-instances --instance-id $INSTANCE_ID \
         --query "Reservations[*].Instances[*].PublicIpAddress" \
         --output text
         )
