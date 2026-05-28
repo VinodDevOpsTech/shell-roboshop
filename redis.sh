@@ -33,10 +33,6 @@ VALIDATE $? " disabling and enabling redis"
 dnf install redis -y &>>$LOGS_FILE
 VALIDATE $? "Installing redis"
 
-systemctl enable mongod 
-systemctl start mongod 
-VALIDATE $? "enabling and starting mongoDB"
-
 sed -i -e 's/127.0.0.1/0.0.0.0/g' -e '/protected/ c protected no' /etc/redis/redis.conf
 VALIDATE $? "Allowing remote connections to user"
 
