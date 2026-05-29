@@ -6,6 +6,7 @@ sudo chown -R ec2-user:ec2-user $LOGS_FOLDER
 sudo chmod -R 755 $LOGS_FOLDER
 LOGS_FILE="$LOGS_FOLDER/$0.log"
 SCRIPT_DIR=$PWD
+MYSQL_HOST=mysql.daws90s.shop
 
 USERID=$(id -u)
 R="\e[31m"
@@ -28,10 +29,8 @@ VALIDATE(){
     fi
 }
 
-dnf module disable nodejs -y &>>$LOGS_FILE
-dnf module enable nodejs:20 -y  &>>$LOGS_FILE
-dnf install nodejs -y &>>$LOGS_FILE
-VALIDATE $? "Installing NodeJS:20"
+dnf install maven -y &>>$LOGS_FILE
+VALIDATE $? "Installing Maven"
 
 id roboshop &>>$LOGS_FILE
 if [ $? -ne 0 ]; then
@@ -44,38 +43,37 @@ fi
 rm -rf /app
 VALIDATE $? "Removing existing code"
 
-rm -rf /tmp/catalogue.zip
-VALIDATE $? "Removed catalogue zip"
+rm -rf /tmp/shipping.zip
+VALIDATE $? "Removed shipping zip"
 
 mkdir -p /app  &>>$LOGS_FILE
 VALIDATE $? "Creating app directory"
 
-curl -o /tmp/catalogue.zip https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip  &>>$LOGS_FILE
+curl -o /tmp/shipping.zip https://roboshop-artifacts.s3.amazonaws.com/shipping-v3.zip  &>>$LOGS_FILE
 cd /app 
-unzip /tmp/catalogue.zip &>>$LOGS_FILE
-VALIDATE $? "Downloaded and extracted catalogue code"
+unzip /tmp/shipping.zip &>>$LOGS_FILE
+VALIDATE $? "Downloaded and extracted shipping code"
 
-npm install  &>>$LOGS_FILE
+mvn clean package  &>>$LOGS_FILE
+mv target/shipping-1.0.jar shipping.jar 
 VALIDATE $? "Installing dependencies"
 
-cp $SCRIPT_DIR/catalogue.service /etc/systemd/system/catalogue.service
+cp $SCRIPT_DIR/shipping.service /etc/systemd/system/shipping.service
 VALIDATE $? "Created systemctl service"
 
-cp $SCRIPT_DIR/mongo.repo /etc/yum.repos.d/mongo.repo
-VALIDATE $? "Added Mongo repo" 
+dnf install mysql -y &>>$LOGS_FILE
+VALIDATE $? "Installing MySQL client"
 
-dnf install mongodb-mongosh -y &>>$LOGS_FILE
-VALIDATE $? "Installed MongoDB client"
-
-INDEX=$(mongosh --host mongodb.daws90s.shop --eval 'db.getMongo().getDBNames().indexOf("catalogue")')
-
-if [ $INDEX -lt 0 ]; then
-    mongosh --host mongodb.daws90s.shop </app/db/master-data.js &>>$LOGS_FILE
-    VALIDATE $? "Load Products"
+mysql -h $MYSQL_HOST -u root -pRoboShop@1 -e "use cities" &>>$LOGS_FILE
+if [ $? -ne 0 ]; then
+    mysql -h $MYSQL_HOST -uroot -pRoboShop@1 < /app/db/schema.sql
+    mysql -h $MYSQL_HOST -uroot -pRoboShop@1 < /app/db/app-user.sql
+    mysql -h $MYSQL_HOST -uroot -pRoboShop@1 < /app/db/master-data.sql
+    VALIDATE $? "Data loaded"
 else
-    echo -e "Products already loaded ... $Y SKIPPING $N"
+    echo -e "Data already loaded ... $Y SKIPPING $N"
 fi
 
-systemctl enable catalogue &>>$LOGS_FILE
-systemctl restart catalogue &>>$LOGS_FILE
-VALIDATE $? "Restarting catalogue"
+systemctl enable shipping 
+systemctl restart shipping
+VALIDATE $? "Enable and restarted shipping"
